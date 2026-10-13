@@ -1,0 +1,49 @@
+{
+  "openapi": "3.2.0",
+  "$self": "https://example.com/openapi.json",
+  "info": { "title": "OAS 3.2 methods", "version": "1.0.0" },
+  "tags": [
+    { "name": "search", "summary": "Search", "kind": "nav" },
+    { "name": "files", "parent": "search", "kind": "nav" }
+  ],
+  "paths": {
+    "/search": {
+      "parameters": [
+        {
+          "name": "q",
+          "in": "querystring",
+          "content": { "application/x-www-form-urlencoded": { "schema": { "type": "object" } } }
+        }
+      ],
+      "get": { "operationId": "getSearch", "responses": { "200": { "description": "ok" } } },
+      "query": {
+        "operationId": "querySearch",
+        "tags": ["search"],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "term": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": {
+            "summary": "Results",
+            "description": "results",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } }
+          }
+        }
+      },
+      "additionalOperations": {
+        "COPY": {
+          "operationId": "copySearch",
+          "tags": ["files"],
+          "deprecated": true,
+          "responses": { "201": { "description": "copied" } }
+        },
+        "get": { "operationId": "illegalDuplicate", "responses": { "500": { "description": "should be ignored" } } }
+      }
+    }
+  },
+  "webhooks": {
+    "newThing": {
+      "query": { "operationId": "webhookQuery", "responses": { "200": { "description": "ok" } } }
+    }
+  }
+}

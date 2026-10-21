@@ -13,7 +13,42 @@ import { toExternalDocs } from './externalDocs';
 import { translateToTags } from './tags';
 import { translateToSecurityDeclarationType } from './transformers';
 
-const DEFAULT_METHODS = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace'];
+export const DEFAULT_METHODS = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace'];
+
+/** OpenAPI 3.2 adds the `query` fixed field to the Path Item Object. */
+export const OAS3_2_METHODS = [...DEFAULT_METHODS, 'query'];
+
+const OAS3_2_VERSION = /^3\.2(?:\.[0-9]*)?$/;
+
+export function isOas3_2(document: unknown): boolean {
+  return isPlainObject(document) && OAS3_2_VERSION.test(String(document.openapi));
+}
+
+/**
+ * Lists the methods defined in OpenAPI 3.2 `additionalOperations` of a Path Item, lowercased.
+ * Fixed-field methods are skipped, since the spec forbids redefining them there.
+ */
+export function getAdditionalOperationMethods(pathItem: unknown, fixedMethods: string[] = OAS3_2_METHODS): string[] {
+  if (!isPlainObject(pathItem) || !isPlainObject(pathItem.additionalOperations)) return [];
+  const methods = Object.keys(pathItem.additionalOperations)
+    .map(key => key.toLowerCase())
+    .filter(method => !fixedMethods.includes(method));
+  return [...new Set(methods)];
+}
+
+/**
+ * Looks up the operation object for a lowercased method on a Path Item,
+ * falling back to OpenAPI 3.2 `additionalOperations` (whose keys are case-sensitive, e.g. `COPY`).
+ */
+export function getOperationObject(pathItem: unknown, method: string): unknown {
+  if (!isPlainObject(pathItem)) return;
+  if (method in pathItem && method !== 'additionalOperations') return pathItem[method];
+  const additional = pathItem.additionalOperations;
+  if (!isPlainObject(additional)) return;
+  if (method in additional) return additional[method];
+  const key = Object.keys(additional).find(k => k.toLowerCase() === method);
+  return key === void 0 ? void 0 : additional[key];
+}
 
 export const OPERATION_CONFIG: EndpointOperationConfig = {
   type: 'operation',
@@ -46,6 +81,9 @@ export function transformOasEndpointOperations<
     let operations = Object.keys(value);
     if (methods !== null) {
       operations = operations.filter(pathKey => methods.includes(pathKey));
+      if (isOas3_2(document)) {
+        operations.push(...getAdditionalOperationMethods(value, methods).filter(m => !operations.includes(m)));
+      }
     }
 
     return operations.map(method =>
@@ -70,7 +108,7 @@ export const transformOasEndpointOperation: TranslateFunction<
     throw new Error(`Could not find ${[documentProp, name].join('/')} in the provided spec.`);
   }
 
-  const obj = this.maybeResolveLocalRef(pathObj[method]) as OperationObject;
+  const obj = this.maybeResolveLocalRef(getOperationObject(pathObj, method)) as OperationObject;
   if (!obj) {
     throw new Error(`Could not find ${[documentProp, name, method].join('/')} in the provided spec.`);
   }

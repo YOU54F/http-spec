@@ -21,9 +21,15 @@ export const translateToCallbacks: Oas3TranslateFunction<
         results.push({ key: callbackName, ...path2Methods });
       }
       for (const [path, method2Op] of entries(path2Methods)) {
-        for (const [method, op] of entries(method2Op as { [key: string]: {} })) {
+        const methodEntries = entries(method2Op as { [key: string]: {} }).flatMap(([method, op]) =>
+          // OAS 3.2 additionalOperations: flatten custom methods (lowercased) into the method list
+          method === 'additionalOperations'
+            ? entries(op as { [key: string]: {} }).map(([m, o]) => [m.toLowerCase(), o] as [string, {}])
+            : [[method, op] as [string, {}]],
+        );
+        for (const [method, op] of methodEntries) {
           const document: Partial<OpenAPIObject> = {
-            openapi: '3',
+            openapi: typeof this.document.openapi === 'string' ? this.document.openapi : '3',
             info: { title: '', version: '1' },
             paths: { [path]: { [method]: op } },
           };

@@ -4,6 +4,10 @@ import type { OpenAPIObject } from 'openapi3-ts';
 
 import { isNonNullable } from '../guards';
 import {
+  DEFAULT_METHODS,
+  getOperationObject,
+  isOas3_2,
+  OAS3_2_METHODS,
   OPERATION_CONFIG,
   transformOasEndpointOperation,
   transformOasEndpointOperations,
@@ -26,7 +30,7 @@ export function transformOas3Operations<T extends Fragment = DeepPartial<OpenAPI
     document,
     transformOas3Operation,
     OPERATION_CONFIG,
-    void 0,
+    isOas3_2(document) ? OAS3_2_METHODS : DEFAULT_METHODS,
     ctx,
   ) as unknown as IHttpOperation[];
 }
@@ -39,7 +43,7 @@ export function transformOas3WebhookOperations<T extends Fragment = DeepPartial<
     document,
     transformOas3Operation,
     WEBHOOK_CONFIG,
-    void 0,
+    isOas3_2(document) ? OAS3_2_METHODS : DEFAULT_METHODS,
     ctx,
   ) as unknown as IHttpWebhookOperation[];
 }
@@ -54,7 +58,7 @@ export const transformOas3Operation: Oas3HttpEndpointOperationTransformer = ({
 }) => {
   const httpOperation = transformOasEndpointOperation.call(ctx, config, name, method, key);
   const parentObj = ctx.maybeResolveLocalRef(ctx.document[config.documentProp]![name]) as Fragment;
-  const operation = ctx.maybeResolveLocalRef(parentObj[method]) as Fragment;
+  const operation = ctx.maybeResolveLocalRef(getOperationObject(parentObj, method)) as Fragment;
 
   return {
     ...httpOperation,
